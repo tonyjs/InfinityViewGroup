@@ -9,6 +9,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Scroller;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -37,7 +38,6 @@ public class InfinityViewGroup extends ViewGroup {
     private float mDpi;
     private Scroller mScroller;
     private void init() {
-//        setOrientation(HORIZONTAL);
         DisplayMetrics metrics = getContext().getResources().getDisplayMetrics();
         mDpi = metrics.density;
         mScroller = new Scroller(getContext());
@@ -47,6 +47,7 @@ public class InfinityViewGroup extends ViewGroup {
     float mFirstX = 0;
     float mFirstY = 0;
     float mLastX = 0;
+    int mDistanceX = 0;
     boolean mOccurredScroll = false;
     boolean toLeft = true;
     @Override
@@ -57,87 +58,60 @@ public class InfinityViewGroup extends ViewGroup {
                 mFirstX = event.getX();
                 mFirstY = event.getY();
                 mLastX = event.getX();
-//                mScrollX = event.getX();
                 break;
             case MotionEvent.ACTION_MOVE:
-//                Log.e("jsp", "width = " + mHeight + "\nheight = " + mHeight);
                 float lastX = event.getX();
-//                Log.e("jsp", "lastX = " + lastX);
                 float lastY = event.getY();
 
-                int distance = (int) (lastX - mLastX);
-
-                if (Math.abs(distance) > 5 * mDpi) {
+                mDistanceX = (int) (lastX - mLastX);
+                if (Math.abs(mDistanceX) > 5 * mDpi) {
                     int max = mViewArray.size();
-                    if (distance >= 0) {
-                        toLeft = true;
-                        for (int i = 0; i < max; i++) {
-                            ViewSpec viewSpec = mViewArray.get(i);
-                            View view = viewSpec.getView();
-                            int right = viewSpec.getRight() + distance;
-                            if (right >= mTotalWidth) {
-                                right = 0;
-                            }
-                            viewSpec.setRight(right);
-                            int left = viewSpec.getRight() - mWidth;
-                            viewSpec.setLeft(left);
-                            view.layout(
-                                    viewSpec.getLeft(), viewSpec.getTop(), viewSpec.getRight(), viewSpec.getBottom());
-                            view.setTag(viewSpec);
-//                            Log.e("jsp", "left = " + viewSpec.getLeft()
-//                                            + " right = " + viewSpec.getRight());
-                        }
-                    } else {
-                        toLeft = false;
-                        for (int i = 0; i < max; i++) {
-                            ViewSpec viewSpec = mViewArray.get(i);
-                            View view = viewSpec.getView();
-                            int left = viewSpec.getLeft() + distance;
-                            if (left <= 0) {
-                                left = mTotalWidth;
-                            }
-                            viewSpec.setLeft(left);
-                            int right = viewSpec.getLeft() + mWidth;
-                            viewSpec.setRight(right);
-                            view.layout(
-                                    viewSpec.getLeft(), viewSpec.getTop(), viewSpec.getRight(), viewSpec.getBottom());
-                            view.setTag(viewSpec);
-//                            Log.e("jsp", "left = " + viewSpec.getLeft()
-//                                    + " right = " + viewSpec.getRight());
-                        }
+                    for (int i = 0; i < max; i++) {
+                        ViewSpec viewSpec = mViewArray.get(i);
+                        int left = viewSpec.getLeft() + mDistanceX;
+                        viewSpec.setLeft(left);
+                        viewSpec.setRight(left + mWidth);
+                        layoutFromViewSpec(viewSpec);
                     }
+                    toLeft = mDistanceX >= 0;
                     mOccurredScroll = true;
                 }
+
                 mLastX = lastX;
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 if (mOccurredScroll) {
-                    int max = mViewArray.size();
-                    for (int i = 0; i < max; i++) {
-                        ViewSpec viewSpec = mViewArray.get(i);
-                        int left = viewSpec.getLeft();
-                        int temp = -1;
-                        int tagetPoint = 0;
-                        for (int j = 0; j < mDistanceArr.length; j++) {
-                            int point = mDistanceArr[j];
-                            if (temp == -1) {
-                                temp = Math.abs(point - left);
-                                tagetPoint = point;
+                    int max = mDistanceArr.length;
+                    if (toLeft) {
+                        for (int i = 0; i < max; i++) {
+                            int target = mDistanceArr[i] + mWidth;
+                            View v = getNearView(target);
+                            ViewSpec spec = (ViewSpec) v.getTag();
+                            if (target == mTotalWidth) {
+                                spec.setLeft(0);
+                                spec.setRight(mWidth);
                             } else {
-                                int a = Math.abs(point - left);
-                                if (a <= temp) {
-                                    temp = a;
-                                    tagetPoint = point;
-                                }
+                                spec.setLeft(target);
+                                spec.setRight(target + mWidth);
                             }
+                            layoutFromViewSpec(spec);
                         }
-                        viewSpec.setLeft(tagetPoint);
-                        viewSpec.setRight(viewSpec.getLeft() + mWidth);
-                        View view = viewSpec.getView();
-                        view.layout(viewSpec.getLeft(), viewSpec.getTop(), viewSpec.getRight(), viewSpec.getBottom());
+                    } else {
+                        for (int i = 0; i < max; i++) {
+                            int target = mDistanceArr[i];
+                            View v = getNearViewFromRight(target);
+                            ViewSpec spec = (ViewSpec) v.getTag();
+                            if (target == 0) {
+                                spec.setLeft(mTotalWidth - mWidth);
+                                spec.setRight(mTotalWidth);
+                            } else {
+                                spec.setLeft(target - mWidth);
+                                spec.setRight(target);
+                            }
+                            layoutFromViewSpec(spec);
+                        }
                     }
-//                    scrollToPosition();
                 }
                 mOccurredScroll = false;
                 break;
@@ -146,60 +120,50 @@ public class InfinityViewGroup extends ViewGroup {
         return true;
     }
 
-//    int mLastScrollX;
-//    private void scrollToPosition() {
-//        int left = 0;
-//        int position = 0;
-//        boolean toLeft = false;
-//        int max = getChildCount();
-//        for (int i = 0; i < max; i++) {
-//            left = mWidth * i;
-//            int right = left + mWidth;
-//            if (mScrollX >= left && mScrollX <= right) {
-//                int differenceLeft = Math.abs(mScrollX - left);
-//                int differenceRight = Math.abs(mScrollX - right);
-//
-//                if (differenceRight >= differenceLeft) {
-//                    position = i;
-//                    scrollTo(left, 0);
-//                    mLastScrollX = mScrollX = left;
-//                    toLeft = true;
-//                } else {
-//                    position = i + 1;
-//                    scrollTo(right, 0);
-//                    mLastScrollX = mScrollX = right;
-//                    toLeft = false;
-//                }
-//                break;
-//            }
-//        }
-//
-//        int adapterCount = mAdapter.getCount() + 2;
-////        Log.e("jsp", "position = " + position + " max = " + max);
-//        if (position < max / 2) {
-//            if (toLeft) {
-//                View removeView = getChildAt(max - 1);
-//                int itemPosition = (Integer) removeView.getTag();
-//                removeView(removeView);
-//
-//                View v = (View) mAdapter.instantiateItem(this, itemPosition, true);
-//                v.setTag(itemPosition);
-//                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(mWidth, mHeight);
-//                v.setLayoutParams(params);
-//            } else {
-//                View removeView = getChildAt(0);
-//                int itemPosition = (Integer) removeView.getTag();
-//                removeView(removeView);
-//
-//                View v = (View) mAdapter.instantiateItem(this, itemPosition);
-//                v.setTag(itemPosition);
-//                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(mWidth, mHeight);
-//                v.setLayoutParams(params);
-//            }
-//        }
-//
-//        invalidate();
-//    }
+    private View getNearView(int target) {
+        View view = null;
+        int temp = -1;
+        for (int i = 0; i < getChildCount(); i++) {
+            View v = getChildAt(i);
+            int left = v.getLeft();
+            int distance = Math.abs(target - left);
+            if (temp == -1) {
+                temp = distance;
+                view = v;
+            } else {
+                if (distance < temp) {
+                    temp = distance;
+                    view = v;
+                }
+            }
+        }
+        return view;
+    }
+
+    private View getNearViewFromRight(int target) {
+        View view = null;
+        int temp = -1;
+        for (int i = 0; i < getChildCount(); i++) {
+            View v = getChildAt(i);
+            int right = v.getRight();
+            int distance = Math.abs(right - target);
+            if (temp == -1) {
+                temp = distance;
+                view = v;
+            } else {
+                if (distance < temp) {
+                    temp = distance;
+                    view = v;
+                }
+            }
+        }
+        return view;
+    }
+
+    private void layoutFromViewSpec(ViewSpec viewSpec) {
+        View view = viewSpec.getView();
+        view.layout(viewSpec.getLeft(), viewSpec.getTop(), viewSpec.getRight(), viewSpec.getBottom());
+    }
 
     private int mTotalWidth = 0;
     private int mWidth = 0;
@@ -211,10 +175,7 @@ public class InfinityViewGroup extends ViewGroup {
         if (mWidth == 0) {
             mWidth = MeasureSpec.getSize(widthMeasureSpec);
             mHeight = MeasureSpec.getSize(heightMeasureSpec);
-//            Log.i("jsp", "onMeasure - " + mWidth);
             mTotalWidth = max * mWidth;
-
-//            Log.e("jsp", "onMeasure - " + mTotalWidth + " height = " + mHeight);
         }
 
         for (int i = 0; i < max; i++) {
@@ -234,7 +195,6 @@ public class InfinityViewGroup extends ViewGroup {
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         if(mFirstLayout){
-//            Log.d("jsp", "onLayout - " + mWidth);
 
             int max = getChildCount();
 
@@ -243,17 +203,17 @@ public class InfinityViewGroup extends ViewGroup {
             mDistanceArr = new int[max];
 
             for (int i = 0; i < max; i++) {
-                mDistanceArr[i] = mWidth * i;
                 View view = getChildAt(i);
 
                 if (left >= mTotalWidth) {
                     left = 0;
                 }
+                mDistanceArr[i] = left;
 
 //                Log.w("jsp", "left = " + left);
                 int right = left + mWidth;
                 view.layout(left, getTop(), right, getBottom());
-                mViewArray.put(i, new ViewSpec(left, getTop(), right, getBottom(), view));
+                mViewArray.put(i, new ViewSpec(i, left, getTop(), right, getBottom(), view));
                 view.setTag(mViewArray.get(i));
                 left += mWidth;
             }
@@ -282,18 +242,28 @@ public class InfinityViewGroup extends ViewGroup {
     private SparseArray<ViewSpec> mViewArray = new SparseArray<ViewSpec>();
 
     private class ViewSpec {
+        int originPosition;
         int left;
         int top;
         int right;
         int bottom;
         View view;
 
-        private ViewSpec(int left, int top, int right, int bottom, View view) {
+        private ViewSpec(int originPosition, int left, int top, int right, int bottom, View view) {
+            this.originPosition = originPosition;
             this.left = left;
             this.top = top;
             this.right = right;
             this.bottom = bottom;
             this.view = view;
+        }
+
+        public int getOriginPosition() {
+            return originPosition;
+        }
+
+        public void setOriginPosition(int originPosition) {
+            this.originPosition = originPosition;
         }
 
         public int getLeft() {

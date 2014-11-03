@@ -49,15 +49,15 @@ public class MainActivity extends Activity {
     }
 
     private class ViewPagerAdapter extends InfinityPagerAdapter {
-        int colors[] = new int[]{Color.RED, Color.BLACK, Color.BLUE, Color.GREEN, Color.YELLOW, Color.DKGRAY};
+        int colors[] = new int[]{Color.RED, Color.BLACK, Color.BLUE, Color.GREEN, Color.LTGRAY, Color.DKGRAY};
         ArrayList<Colors> items = new ArrayList<Colors>();
 
         public ViewPagerAdapter() {
             items.add(new Colors(colors[0], "RED"));
+            items.add(new Colors(colors[4], "LTGRAY"));
             items.add(new Colors(colors[1], "BLACK"));
             items.add(new Colors(colors[2], "BLUE"));
             items.add(new Colors(colors[3], "GREEN"));
-            items.add(new Colors(colors[4], "YELLOW"));
             items.add(new Colors(colors[5], "DKGRAY"));
         }
 
@@ -73,7 +73,8 @@ public class MainActivity extends Activity {
 
             Colors item = items.get(position);
             v.setBackgroundColor(item.color);
-            tvName.setText(item.name);
+            tvName.setText(Integer.toString(position + 1));
+//            tvName.setText(item.name);
             container.addView(v);
             return v;
         }
@@ -96,7 +97,7 @@ public class MainActivity extends Activity {
 
                 Colors item = items.get(position);
                 v.setBackgroundColor(item.color);
-                tvName.setText(item.name);
+                tvName.setText(Integer.toString(position));
                 container.addView(v, 0);
                 return v;
             }
