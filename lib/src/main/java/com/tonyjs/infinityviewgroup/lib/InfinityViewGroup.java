@@ -48,6 +48,7 @@ public class InfinityViewGroup extends ViewGroup {
     float mFirstY = 0;
     float mLastX = 0;
     boolean mOccurredScroll = false;
+    boolean toLeft = true;
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         int action = event.getAction();
@@ -69,6 +70,7 @@ public class InfinityViewGroup extends ViewGroup {
                 if (Math.abs(distance) > 5 * mDpi) {
                     int max = mViewArray.size();
                     if (distance >= 0) {
+                        toLeft = true;
                         for (int i = 0; i < max; i++) {
                             ViewSpec viewSpec = mViewArray.get(i);
                             View view = viewSpec.getView();
@@ -82,38 +84,27 @@ public class InfinityViewGroup extends ViewGroup {
                             view.layout(
                                     viewSpec.getLeft(), viewSpec.getTop(), viewSpec.getRight(), viewSpec.getBottom());
                             view.setTag(viewSpec);
-                            Log.e("jsp", "left = " + viewSpec.getLeft()
-                                            + " right = " + viewSpec.getRight());
+//                            Log.e("jsp", "left = " + viewSpec.getLeft()
+//                                            + " right = " + viewSpec.getRight());
                         }
-//                        List<ViewSpec> items = new ArrayList<ViewSpec>();
-//                        for (int i = 0; i < max; i++) {
-//                            items.add(mViewArray.get(i));
-//                        }
-//                        Collections.sort(items, new Comparator<ViewSpec>() {
-//                            @Override
-//                            public int compare(ViewSpec lhs, ViewSpec rhs) {
-//                                return rhs.getRight() > lhs.getRight() ? 0 : -1;
-//                            }
-//                        });
-//
-//                        for (ViewSpec spec : items) {
-//                            Log.e("jsp", "right = " + spec.getRight());
-//                        }
-
-
-//                        ViewSpec lastViewSpec = (ViewSpec) (getChildAt(getChildCount() - 1).getTag());
-//                        int lastViewLeft = lastViewSpec.getLeft();
-//                        Log.e("jsp", "mWidth * getChildCount() = " + mWidth * getChildCount() + " left = " + lastViewLeft);
-//                        if (lastViewLeft >= mWidth * getChildCount()) {
-//                            ViewSpec lastSecondViewSpec = (ViewSpec) (getChildAt(0).getTag());
-//                            int right = lastSecondViewSpec.getLeft();
-//                            lastViewSpec.setLeft(right - mWidth);
-//                            lastViewSpec.setRight(right);
-//                            lastViewSpec.getView().layout(lastViewSpec.getLeft(), lastViewSpec.getTop(),
-//                                                            lastViewSpec.getRight(), lastViewSpec.getBottom());
-//                        }
                     } else {
-
+                        toLeft = false;
+                        for (int i = 0; i < max; i++) {
+                            ViewSpec viewSpec = mViewArray.get(i);
+                            View view = viewSpec.getView();
+                            int left = viewSpec.getLeft() + distance;
+                            if (left <= 0) {
+                                left = mTotalWidth;
+                            }
+                            viewSpec.setLeft(left);
+                            int right = viewSpec.getLeft() + mWidth;
+                            viewSpec.setRight(right);
+                            view.layout(
+                                    viewSpec.getLeft(), viewSpec.getTop(), viewSpec.getRight(), viewSpec.getBottom());
+                            view.setTag(viewSpec);
+//                            Log.e("jsp", "left = " + viewSpec.getLeft()
+//                                    + " right = " + viewSpec.getRight());
+                        }
                     }
                     mOccurredScroll = true;
                 }
@@ -122,6 +113,30 @@ public class InfinityViewGroup extends ViewGroup {
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
                 if (mOccurredScroll) {
+                    int max = mViewArray.size();
+                    for (int i = 0; i < max; i++) {
+                        ViewSpec viewSpec = mViewArray.get(i);
+                        int left = viewSpec.getLeft();
+                        int temp = -1;
+                        int tagetPoint = 0;
+                        for (int j = 0; j < mDistanceArr.length; j++) {
+                            int point = mDistanceArr[j];
+                            if (temp == -1) {
+                                temp = Math.abs(point - left);
+                                tagetPoint = point;
+                            } else {
+                                int a = Math.abs(point - left);
+                                if (a <= temp) {
+                                    temp = a;
+                                    tagetPoint = point;
+                                }
+                            }
+                        }
+                        viewSpec.setLeft(tagetPoint);
+                        viewSpec.setRight(viewSpec.getLeft() + mWidth);
+                        View view = viewSpec.getView();
+                        view.layout(viewSpec.getLeft(), viewSpec.getTop(), viewSpec.getRight(), viewSpec.getBottom());
+                    }
 //                    scrollToPosition();
                 }
                 mOccurredScroll = false;
@@ -215,6 +230,7 @@ public class InfinityViewGroup extends ViewGroup {
     }
 
     private boolean mFirstLayout = true;
+    private int mDistanceArr[];
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         if(mFirstLayout){
@@ -224,7 +240,10 @@ public class InfinityViewGroup extends ViewGroup {
 
             int left = mWidth * 2;
 
+            mDistanceArr = new int[max];
+
             for (int i = 0; i < max; i++) {
+                mDistanceArr[i] = mWidth * i;
                 View view = getChildAt(i);
 
                 if (left >= mTotalWidth) {
